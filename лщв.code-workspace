@@ -1,0 +1,16 @@
+{
+  "folders": [
+	{
+		"path": "."
+	},
+	{
+		"path": "../hackaton1"
+	},
+	{
+		"path": "../register and search/.vscode"
+	}
+],
+  "settings": {
+    "liveServer.settings.multiRootWorkspaceName": "лщв"
+  }
+}

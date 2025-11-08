@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products Store</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="p-10 bg-gray-100 min-h-screen">
+
+    <h1 class="text-4xl font-bold mb-6 text-gray-800">Products</h1>
+
+    <!-- Search input -->
+    <div class="mb-6">
+        <input id="search" type="text" placeholder="Поиск товара..."
+            class="w-full max-w-md p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+
+    <div class="flex flex-wrap gap-4" id="row"></div>
+
+    <!-- Cart -->
+    <div id="cart"
+        class="fixed top-4 right-4 w-80 bg-white shadow-lg rounded-xl p-4 max-h-[400px] overflow-auto">
+        <h2 class="font-bold text-lg mb-2">Корзина</h2>
+        <div id="cart-items" class="space-y-2"></div>
+        <div class="mt-4 font-bold text-gray-900" id="cart-total">Итого: $0</div>
+    </div>
+
+    <script>
+        const row = document.querySelector('#row');
+        const searchInput = document.querySelector('#search');
+        const apiProducts = 'https://dummyjson.com/products';
+        const api2 = 'https://68e211a48943bf6bb3c58500.mockapi.io/todoList/posts';
+
+        const cartItemsContainer = document.querySelector('#cart-items');
+        const cartTotal = document.querySelector('#cart-total');
+        const cart = [];
+        let allProducts = [];
+
+        function renderProducts(products) {
+            row.innerHTML = '';
+            products.forEach(item => {
+                const imgSrc = item.img || item.thumbnail || 'https://via.placeholder.com/150';
+
+                let div = document.createElement('div');
+                div.className = "w-72 bg-white rounded-xl shadow-md p-4 flex flex-col gap-2 hover:scale-105 transform transition";
+                div.innerHTML = `
+                    <img src="${imgSrc}" alt="${item.title}" class="w-full h-48 object-contain rounded-lg">
+                    <h3 class="text-lg font-semibold text-gray-800">${item.title}</h3>
+                    <span class="text-sm text-gray-500">${item.brand || ''}</span>
+                    <div class="flex justify-between text-sm font-medium">
+                        <span class="text-gray-900">$${item.price || 0}</span>
+                        <span class="text-yellow-500">⭐️ ${item.rating || 0}</span>
+                    </div>
+                    <p class="text-sm text-gray-600 line-clamp-2">${item.description || ''}</p>
+                    <button class="bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition add-to-cart">
+                        Добавить в корзину
+                    </button>
+                `;
+
+                div.querySelector('.add-to-cart').addEventListener('click', () => {
+                    addToCart(item);
+                });
+
+                row.appendChild(div);
+            });
+        }
+
+        function addToCart(product) {
+            const existing = cart.find(p => p.id === product.id);
+            if (existing) {
+                existing.count += 1;
+            } else {
+                cart.push({ ...product, count: 1 });
+            }
+            renderCart();
+        }
+
+        function renderCart() {
+            cartItemsContainer.innerHTML = '';
+            let total = 0;
+            cart.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center';
+                div.innerHTML = `
+                    <span>${item.title} x${item.count}</span>
+                    <span>$${item.price * item.count}</span>
+                `;
+                cartItemsContainer.appendChild(div);
+                total += item.price * item.count;
+            });
+            cartTotal.textContent = `Итого: $${total}`;
+        }
+
+        async function renderData() {
+            try {
+                const res1 = await fetch(apiProducts);
+                const data1 = await res1.json();
+
+                const res2 = await fetch(api2);
+                const data2 = await res2.json();
+
+                allProducts = [...data1.products, ...data2];
+                renderProducts(allProducts);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        searchInput.addEventListener('input', () => {
+            const term = searchInput.value.toLowerCase();
+            const filtered = allProducts.filter(p =>
+                (p.title && p.title.toLowerCase().includes(term)) ||
+                (p.brand && p.brand.toLowerCase().includes(term)) ||
+                (p.description && p.description.toLowerCase().includes(term))
+            );
+            renderProducts(filtered);
+        });
+
+        renderData();
+    </script>
+</body>
+
+</html>

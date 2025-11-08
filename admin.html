@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex">
+<aside class="w-64 bg-white shadow-md flex flex-col">
+    <div class="p-6 font-bold text-xl border-b">Admin Panel</div>
+    <nav class="flex-1 flex flex-col mt-4">
+        <button class="menu-btn py-3 px-6 text-left hover:bg-indigo-100" data-target="products">Products</button>
+        <button class="menu-btn py-3 px-6 text-left hover:bg-indigo-100" data-target="charts">Charts</button>
+    </nav>
+</aside>
+<main class="flex-1 p-6 overflow-auto">
+
+<div id="products" class="content-section hidden">
+    <h1 class="text-3xl font-bold mb-6">Products</h1>
+    <div class="bg-white p-6 rounded-xl shadow-lg max-w-2xl mb-6">
+        <form id="product-form" class="flex flex-col gap-4" onsubmit="addOrEditProduct(event)">
+            <input type="hidden" id="editIndex">
+            <input type="text" id="title" placeholder="Название" class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+            <input type="text" id="brand" placeholder="Бренд" class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+            <input type="number" id="price" placeholder="Цена" class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+            <input type="number" step="0.1" max="5" min="0" id="rating" placeholder="Рейтинг (0-5)" class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+            <textarea id="description" placeholder="Описание" class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400" required></textarea>
+            <input type="text" id="thumbnail" placeholder="URL картинки" class="p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+            <button type="submit" class="bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition">Добавить / Сохранить</button>
+        </form>
+    </div>
+    <div id="row" class="flex justify-start flex-wrap gap-4"></div>
+</div>
+
+<div id="charts" class="content-section hidden">
+    <h1 class="text-3xl font-bold mb-6">Charts</h1>
+    <canvas id="productsChart" class="bg-white p-6 rounded-xl shadow-lg"></canvas>
+</div>
+
+</main>
+
+<script>
+const menuBtns = document.querySelectorAll('.menu-btn');
+const sections = document.querySelectorAll('.content-section');
+menuBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const target = btn.dataset.target;
+        sections.forEach(sec => sec.classList.add('hidden'));
+        document.getElementById(target).classList.remove('hidden');
+        if(target === 'charts') updateChart();
+    });
+});
+
+let productsData = [];
+const row = document.getElementById('row');
+
+async function loadProducts() {
+    try {
+        const [apiRes, dummyRes] = await Promise.all([
+            fetch('https://68e211a48943bf6bb3c58500.mockapi.io/todoList/posts'),
+            fetch('https://dummyjson.com/products')
+        ]);
+        const apiData = await apiRes.json();
+        const dummyData = await dummyRes.json();
+        const dummyProducts = dummyData.products.map(p=>({
+            title: p.title,
+            brand: p.brand || "Dummy",
+            price: p.price || 0,
+            rating: p.rating || 0,
+            description: p.description || "",
+            thumbnail: p.thumbnail || "https://via.placeholder.com/150"
+        }));
+        const apiProducts = apiData.map(p=>({
+            title: p.title,
+            brand: p.brand || "Без бренда",
+            price: p.price || 0,
+            rating: p.rating || 0,
+            description: p.description || "",
+            thumbnail: p.thumbnail || "https://via.placeholder.com/150"
+        }));
+        productsData = [...apiProducts,...dummyProducts];
+        renderProducts();
+    } catch(e) { console.error(e); }
+}
+
+function renderProducts() {
+    row.innerHTML = '';
+    productsData.forEach((p,i)=>{
+        const card = document.createElement('div');
+        card.className = "bg-white p-4 rounded-xl shadow-md w-64 flex flex-col";
+        card.innerHTML = `
+            <img src="${p.thumbnail}" alt="${p.title}" class="h-40 object-cover rounded-md mb-3">
+            <h3 class="font-bold text-lg">${p.title}</h3>
+            <p class="text-gray-600">${p.brand}</p>
+            <p class="text-gray-800 font-semibold">$${p.price}</p>
+            <p class="text-yellow-500">Рейтинг: ${p.rating}</p>
+            <p class="text-gray-700 text-sm mt-2">${p.description}</p>
+            <div class="mt-2 flex gap-2">
+                <button onclick="editProduct(${i})" class="bg-yellow-400 text-white py-1 px-3 rounded hover:bg-yellow-500">Edit</button>
+                <button onclick="deleteProduct(${i})" class="bg-red-500 text-white py-1 px-3 rounded hover:bg-red-600">Delete</button>
+            </div>
+        `;
+        row.prepend(card);
+    });
+}
+
+function addOrEditProduct(event) {
+    event.preventDefault();
+    const index = document.getElementById('editIndex').value;
+    const product = {
+        title: document.getElementById('title').value,
+        brand: document.getElementById('brand').value,
+        price: document.getElementById('price').value,
+        rating: document.getElementById('rating').value,
+        description: document.getElementById('description').value,
+        thumbnail: document.getElementById('thumbnail').value
+    };
+    if(index) { productsData[index]=product; document.getElementById('editIndex').value=''; }
+    else { productsData.push(product); }
+    document.getElementById('product-form').reset();
+    renderProducts();
+    updateChart();
+}
+
+function editProduct(i){
+    const p = productsData[i];
+    document.getElementById('title').value=p.title;
+    document.getElementById('brand').value=p.brand;
+    document.getElementById('price').value=p.price;
+    document.getElementById('rating').value=p.rating;
+    document.getElementById('description').value=p.description;
+    document.getElementById('thumbnail').value=p.thumbnail;
+    document.getElementById('editIndex').value=i;
+}
+
+function deleteProduct(i){
+    productsData.splice(i,1);
+    renderProducts();
+    updateChart();
+}
+
+let productsChart;
+function updateChart(){
+    const counts={};
+    productsData.forEach(p=>counts[p.brand]=(counts[p.brand]||0)+1);
+    const sortedBrands = Object.entries(counts).sort((a,b)=>a[1]-b[1]);
+    const labels = sortedBrands.map(e=>e[0]);
+    const data = sortedBrands.map(e=>e[1]);
+    const ctx=document.getElementById('productsChart').getContext('2d');
+    if(productsChart) productsChart.destroy();
+    const gradient = ctx.createLinearGradient(0,0,0,400);
+    gradient.addColorStop(0,'rgba(99,102,241,0.7)');
+    gradient.addColorStop(1,'rgba(99,102,241,0.3)');
+    productsChart=new Chart(ctx,{
+        type:'line',
+        data:{labels:labels,datasets:[{label:'Продукты по брендам',data:data,backgroundColor:gradient,borderRadius:5}]},
+        options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+    });
+}
+
+loadProducts();
+</script>
+</body>
+</html>
